@@ -1,0 +1,90 @@
+# delete temp files - keep this file in order to work properly
+rm -f multipleiplogins* spam
+rm -f output
+
+# date and time for last 3 hours
+Date=$(date +'%b %e %H')
+Date1h=$(date -d -1hour +'%b %e %H')
+Date2h=$(date -d -2hour +'%b %e %H')
+
+# generate file - number of logins per ip and mail
+nr_logip_mail="$(cat /var/log/zimbra.log|grep "sasl_username="|grep -e "$Date" -e "$Date1h" -e "$Date2h"|awk -F"client=" '{print $2}'|awk -F"\x5b" '{print $2}'|sort |uniq -c|sort -nr)"
+echo "$nr_logip_mail" > multipleiplogins_top_all.tmp2
+
+# generate file - total different ips login per email
+difipmail="$(cat multipleiplogins_top_all.tmp2|awk -F"sasl_username=" '{print $2}'|sort |uniq -c|sort -nr)"
+echo "$difipmail" > multipleiplogins
+
+# generate file - mails that surpas the limit
+awk -v threshold="9" '$1 > threshold' multipleiplogins|awk '{print $2}' > multipleiplogins_email
+
+
+######################################################################
+# mails over limit
+file="/root/antispamlog/multipleiplogins_email"
+
+exec 9<$file
+while read -u9 line
+do
+
+cat multipleiplogins_top_all.tmp2|grep $line >> multipleiplogins_top_all.tmp
+
+done
+
+
+######################################################################
+# mail country_code IP Country
+file2="/root/antispamlog/multipleiplogins_top_all.tmp"
+
+exec 9<$file2
+while read -u9 line
+do
+
+get_country="$(geoiplookup $(echo "$line"|grep -o '[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}')|awk -F", " '{print $1}'|awk -F": " '{print $2}')"
+get_country2="$(geoiplookup $(echo "$line"|grep -o '[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}')|awk -F", " '{print $2}')"
+get_ip="$(echo "$line"|grep -o '[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}')"
+get_mail="$(echo $line|awk -F"sasl_username=" '{print $2}')"
+
+echo " $get_mail $get_country $get_ip $get_country2" >> multipleiplogins_top_all
+
+done
+
+######################################################################
+# !!! keep "fake" !!!
+# TotalDifferentIPs Mail
+# CountrCode IP Country
+
+# one more step to keep the entire message of geoiplookup "ip not found..."
+file3="/root/antispamlog/multipleiplogins_email"
+
+exec 9<$file3
+while read -u9 line
+do
+
+echo " fake ###############################################################" >> spam
+echo ""fake  >> spam
+echo "fake $(cat multipleiplogins_top_all|grep $line|wc -l) $line" >> spam
+echo "$(cat multipleiplogins_top_all|grep $line)" >> spam
+echo "fake " >> spam
+
+awk '{$1=""}1' spam | awk '{$1=$1}1' > "output.$(date +'%d-%b-%H':%M)"
+
+done
+
+
+######################################################################
+
+# clean
+rm -f multipleiplogins* spam
+
+# end repotr
+if [[ -f /root/antispamlog/output.$(date +'%d-%b-%H':%M) ]]; then
+    echo "###############################################################" >> output.$(date +'%d-%b-%H':%M)
+fi
+
+# send email
+if [[ -f /root/antispamlog/output.$(date +'%d-%b-%H':%M) ]]; then
+    mail_body="$(cat output.$(date +'%d-%b-%H':%M))"
+    echo "$mail_body" | mutt -s"Zimbra multiple login report for - $(date +'%d.%b.%Y %H':%M)" --  email@adress.tld
+    exit
+fi
