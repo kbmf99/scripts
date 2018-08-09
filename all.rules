@@ -1,0 +1,42 @@
+ rules:
+  - alert: instance_down
+    expr: up == 0
+    for: 5m
+    labels:
+      severity: Critical
+    annotations:
+      description: '{{ $labels.job }}''s is DOWN and needs attention, status = {{ $value }}.'
+      summary: '{{ $labels.job }} is DOWN'
+      monitor:
+      runbook:
+  - alert: cpu_threshold_exceeded
+    expr: (1 - avg by(job) (irate(node_cpu{mode="idle"}[5m]))) > 0.9
+    for: 5m
+    labels:
+      severity: Critical
+    annotations:
+      description: '{{ $labels.job }}''s CPU usage has exceeded the 90% threshold with a 5 minute LOAD value of: {{ $value }}.'
+      summary: '{{ $labels.job }}''s CPU usage is dangerously high'
+      monitor:
+      runbook:
+  - alert: mem_threshold_exceeded
+    expr: ((node_memory_MemTotal - node_memory_MemFree - node_memory_Cached) / (node_memory_MemTotal))
+      * 100 > 90
+    for: 5m
+    labels:
+      severity: Critical
+    annotations:
+      description: '{{ $labels.job }}'' MEMORY usage has exceeded the 90% threshold with a value of: {{ $value }}%.'
+      summary: '{{ $labels.job }}'' MEMORY usage is dangerously high'
+      monitor:
+      runbook:
+  - alert: filesystem_threshold_exceeded
+    expr: node_filesystem_avail{mountpoint="/"} / node_filesystem_size * 100 < 20
+    for: 5m
+    labels:
+      severity: Critical
+    annotations:
+      description: '{{ $labels.job }}''s FILESYSTEM only has: {{ $value }}% free.'
+      summary: '{{ $labels.job }}''s FILESYSTEM usage is dangerously high'
+      monitor:
+      runbook:
