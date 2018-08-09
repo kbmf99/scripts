@@ -1,0 +1,33 @@
+global:
+  slack_api_url: 'https://hooks.slack.com/services/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 3h
+  receiver: victorOps-receiver
+
+receivers:
+- name: victorOps-receiver
+  victorops_configs:
+    - api_key: xxxxxxx-xxxx-xxxx-xxxx-xxxxxx
+      routing_key: Sample_route
+      state_message: 'SmartTracking Alert: {{ .CommonLabels.alertname }}. Summary:{{ .CommonAnnotations.summary }}. RawData: {{ .CommonLabels }}'
+
+  slack_configs:
+      -
+        channel: "#smlf"
+        send_resolved: true
+        text: |-
+            {{ range .Alerts }}
+              *Alert:* {{ .Annotations.summary }} - `{{ .Labels.severity }}`
+              *Description:* {{ .Annotations.description }}
+              *Status:* {{ .Status | toUpper }}
+              *Starts At:* {{ .StartsAt }}
+              *Ends at:* {{ .EndsAt }}
+              *Graph:* <{{ .GeneratorURL }}|:chart_with_upwards_trend:>
+              *Details:*
+              {{ range .Labels.SortedPairs }} • *{{ .Name }}:* `{{ .Value }}`
+              {{ end }}
+            {{ end }}
+        title: "[{{ .Status | toUpper }}{{ if eq .Status \"firing\" }}:{{ .Alerts.Firing | len }}{{ end }}] Monitoring Event Notification"
