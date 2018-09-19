@@ -10,7 +10,7 @@ cat <<EOT>> /etc/init/alertmanager.conf
 # Run node_exporter
 start on startup
 script
-/etc/alertmanager/alertmanager 
+/etc/alertmanager/alertmanager --config.file=/etc/alermanager.yml
 end script
 EOT
 service alertmanager start
