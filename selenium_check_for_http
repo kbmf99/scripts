@@ -1,0 +1,117 @@
+# coding: UTF-8
+import unittest
+import time
+import logging
+import os
+import sys
+import requests
+from pyvirtualdisplay import Display
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
+start = time.time()
+
+# Performance data
+mainpage_load = 0
+logout_time = 0
+
+class SmartTracking(unittest.TestCase):
+
+    def setUp(self):
+        start = time.time()
+        # Webdriver config
+        options = webdriver.ChromeOptions()
+        options.add_argument("--start-maximized")
+        options.add_argument("--window-size=1920,1080")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--no-sandbox")
+        print("[TEST START --- SmartTracking] --- Starting test")
+        self.browser = webdriver.Chrome('/bin/chromedriver', desired_capabilities=DesiredCapabilities.CHROME, chrome_options=options)
+
+
+    def test_all(self):
+
+        self.start()
+        self.login()
+        self.logout()
+
+
+    def start(self):
+        try:
+            global mainpage_load
+            #print("[TEST START --- SmartTracking] --- Starting test, session %s" % self.driver.session_id)
+            mainpage_load_start = time.time()
+            self.browser.get("https://smart-tracking.orange-business.com/#/access/signin")
+            mainpage_load_end = time.time()
+            mainpage_load = mainpage_load_end - mainpage_load_start
+            self.assertIn("smart tracking", self.browser.title)
+
+        except:
+            print("[TEST FAIL] --- Could not open the main page")
+            raise
+
+        else:
+            print("[TEST OK] --- Main page opened successfully")
+
+
+    def login(self):
+        try:
+            time.sleep(10)
+            element = self.browser.find_element_by_id("userLogin")
+            element.send_keys("mihai1.lemnaru@orange.com")
+            element = self.browser.find_element_by_id("userPassword")
+            element.send_keys("_acerlinE1")
+            element = self.browser.find_element_by_id("submitLoginBtn")
+            element.click()
+            time.sleep(3)
+            self.assertIn("Welcome", self.browser.page_source)
+
+        except:
+            print("[TEST FAIL] --- Could not login")
+            self.browser.save_screenshot("/usr/share/centreon/www/screenshots/smarttracking/test_smarttracking.png")
+            raise
+
+        else:
+            print("[TEST OK] --- Logged in succcessfully")
+
+
+    def logout(self):
+        try:
+            global logout_time
+            logout_time_start=time.time()
+            time.sleep(10)
+            element = self.browser.find_element_by_id("userDropDown")
+            element.click()
+            self.browser.save_screenshot("/usr/share/centreon/www/screenshots/smarttracking/dropdown.png")
+            element = self.browser.find_element_by_xpath("//*[@id=\"signOutLink\"]").click()
+            time.sleep(3)
+            #element.click()
+            self.browser.save_screenshot("/usr/share/centreon/www/screenshots/smarttracking/signout.png")
+            logout_time_end=time.time()
+            logout_time=logout_time_end - logout_time_start
+        except:
+            self.browser.save_screenshot("/usr/share/centreon/www/screenshots/smarttracking/test_smarttracking.png")
+            print("[TEST FAIL] --- Could not log out")
+            raise
+
+        else:
+            print("[TEST OK] --- Logged out successfully")
+
+
+    def tearDown(self):
+        self.browser.close()
+        end = time.time()
+        elapsed = end - start
+        logging.info("[TEST END] --- Test finished in %s seconds | mainpage_load=%.2fs, logout_time=%.2fs" % (round(elapsed, 2), mainpage_load, logout_time))
+        print("[TEST END] --- Test finished in %s seconds | mainpage_load=%.2fs, logout_time=%.2fs" % (round(elapsed, 2), mainpage_load, logout_time))
+
+
+if __name__ == "__main__":
+    display = Display(visible=0, size=(1920,1080))
+    display.start()
+    unittest.main()
+    display.stop()
